@@ -180,6 +180,14 @@ app.get('/api/me', authenticate, async (req, res) => {
   res.json(sanitizeUser(user));
 });
 
+app.post('/api/logout', authenticate, async (req, res) => {
+  const db = await readDB();
+  db.sessions = db.sessions.filter(entry => entry.token !== req.session.token);
+  await writeDB(db);
+
+  res.json({ ok: true });
+});
+
 app.get('/api/petitions', authenticate, async (req, res) => {
   const db = await readDB();
   res.json(db.petitions);

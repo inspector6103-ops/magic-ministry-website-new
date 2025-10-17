@@ -70,10 +70,15 @@
     </div>
   </footer>
 
+  <script src="auth.js"></script>
   <script>
     const SECRET_PASSPHRASE = 'MischiefManaged!';
-    const AUTH_TOKEN_KEY = 'ministryAuthToken';
-    const ROLE_KEY = 'ministryCurrentRole';
+    const {
+      getToken,
+      getRole,
+      clearSession,
+      isAuthenticated,
+    } = window.ministryAuth;
     const ADMIN_SESSION_KEY = 'ministryAdminUnlocked';
 
     const adminLock = document.getElementById('admin-lock');
@@ -173,8 +178,8 @@
     const fetchAdminData = async () => {
       adminFetchError.hidden = true;
 
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      const role = localStorage.getItem(ROLE_KEY);
+      const token = getToken();
+      const role = getRole();
 
       if (!token || role !== 'admin') {
         adminFetchError.textContent = '관리자 계정으로 로그인 후 다시 시도하세요.';
@@ -195,6 +200,7 @@
           petitionsEmptyMessage.hidden = false;
           adminFetchError.textContent = '관리자 권한이 없습니다. 관리자 계정으로 다시 로그인하세요.';
           adminFetchError.hidden = false;
+          clearSession();
           return;
         }
 
@@ -219,7 +225,7 @@
     const unlockAdmin = () => {
       adminLock.hidden = true;
       adminContent.hidden = false;
-      if (localStorage.getItem(AUTH_TOKEN_KEY) && localStorage.getItem(ROLE_KEY) === 'admin') {
+      if (isAuthenticated() && getRole() === 'admin') {
         fetchAdminData();
       }
     };

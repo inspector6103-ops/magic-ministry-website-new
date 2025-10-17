@@ -27,6 +27,7 @@
       <p class="form-note">계정이 없으신가요? <a href="signup.html">회원가입</a></p>
       <p class="form-note">관리자 기본 계정: <code>admin</code> / <code>admin123</code></p>
       <p class="error-message" id="login-error" aria-live="polite" hidden></p>
+      <p class="form-note" id="login-session-note" hidden></p>
     </form>
 
     <section class="list-section" aria-live="polite">
@@ -50,15 +51,23 @@
     </div>
   </footer>
 
+  <script src="auth.js"></script>
   <script>
     const LOGIN_HISTORY_KEY = 'ministryLoginHistory';
-    const CURRENT_USER_KEY = 'ministryCurrentUser';
-    const AUTH_TOKEN_KEY = 'ministryAuthToken';
+
+    const {
+      setSession,
+      clearSession,
+      isAuthenticated,
+      getUser,
+      getRole,
+    } = window.ministryAuth;
 
     const form = document.getElementById('login-form');
     const errorMessage = document.getElementById('login-error');
     const loginIdInput = document.getElementById('login-id');
     const loginPasswordInput = document.getElementById('login-password');
+    const sessionNote = document.getElementById('login-session-note');
 
     const registeredList = document.getElementById('login-user-list');
     const registeredEmpty = document.getElementById('login-registered-empty');
@@ -165,6 +174,9 @@
           const payload = await response.json().catch(() => ({}));
           errorMessage.textContent = payload.error || '아이디 또는 비밀번호가 올바르지 않습니다.';
           errorMessage.hidden = false;
+          if (response.status === 401) {
+            clearSession();
+          }
           return;
         }
 
@@ -176,9 +188,7 @@
         filteredHistory.unshift(userId);
         saveHistory(filteredHistory);
 
-        localStorage.setItem(CURRENT_USER_KEY, userId);
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
-        localStorage.setItem('ministryCurrentRole', user?.role || 'user');
+        setSession({ token, userId, role: user?.role || 'user' });
 
         renderHistory();
         window.location.href = 'login-success.html';
@@ -188,6 +198,16 @@
         errorMessage.hidden = false;
       }
     });
+
+    if (isAuthenticated()) {
+      const name = getUser();
+      sessionNote.hidden = false;
+      const role = getRole();
+      const roleLabel = role === 'admin' ? '관리자' : '일반 사용자';
+      sessionNote.innerHTML = `현재 <strong>${name}</strong> (${roleLabel}) 계정으로 로그인된 상태입니다. <a href="login-success.html">로그인 완료 페이지로 이동</a>`;
+    } else {
+      sessionNote.hidden = true;
+    }
 
     renderRegistered();
     renderHistory();

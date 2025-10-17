@@ -23,6 +23,7 @@
       <div class="button-row">
         <a class="button primary" href="petition.html">총리에게 바란다 이동</a>
         <a class="button" href="jobs.html">직업 신청하기</a>
+        <button type="button" class="button" id="logout-button">로그아웃</button>
       </div>
     </section>
 
@@ -40,13 +41,18 @@
     </div>
   </footer>
 
+  <script src="auth.js"></script>
   <script>
-    const CURRENT_USER_KEY = 'ministryCurrentUser';
-    const AUTH_TOKEN_KEY = 'ministryAuthToken';
+    const {
+      requireSession,
+      clearSession,
+      setSession,
+    } = window.ministryAuth;
 
     const currentUserLabel = document.getElementById('current-user');
     const registeredList = document.getElementById('success-user-list');
     const emptyMessage = document.getElementById('success-empty');
+    const logoutButton = document.getElementById('logout-button');
 
     const redirectToLogin = () => {
       window.location.href = 'login.html';
@@ -88,15 +94,65 @@
       }
     };
 
-    const currentUser = localStorage.getItem(CURRENT_USER_KEY);
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const bootstrapSession = async () => {
+      const session = requireSession();
 
-    if (!currentUser || !token) {
+      if (!session) {
+        redirectToLogin();
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/me', {
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          clearSession();
+          redirectToLogin();
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('failed to load profile');
+        }
+
+        const user = await response.json();
+        currentUserLabel.textContent = user.id;
+        setSession({ token: session.token, userId: user.id, role: user.role });
+        renderUsers();
+      } catch (error) {
+        console.error('me endpoint failed', error);
+        clearSession();
+        redirectToLogin();
+      }
+    };
+
+    logoutButton.addEventListener('click', async () => {
+      const session = requireSession();
+      if (!session) {
+        redirectToLogin();
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+
+        if (!response.ok) {
+          console.warn('logout request failed');
+        }
+      } catch (error) {
+        console.error('logout failed', error);
+      }
+
+      clearSession();
       redirectToLogin();
-    } else {
-      currentUserLabel.textContent = currentUser;
-      renderUsers();
-    }
+    });
+
+    bootstrapSession();
   </script>
 </body>
 </html>
