@@ -12,7 +12,23 @@ app.use(express.json());
 
 const DB_PATH = path.join(__dirname, 'db.json');
 const DEFAULT_ADMIN_USER = { id: 'admin', password: 'admin123', role: 'admin' };
-const DEFAULT_DATA = { users: [DEFAULT_ADMIN_USER], petitions: [], sessions: [] };
+const DEFAULT_DATA = { users: [], petitions: [], sessions: [] };
+
+const ensureDefaultAdminUsers = users => {
+  if (users.some(user => user.id === DEFAULT_ADMIN_USER.id)) {
+    return users;
+  }
+
+  return [
+    { ...DEFAULT_ADMIN_USER },
+    ...users,
+  ];
+};
+
+const enrichWithDefaultAdmin = data => ({
+  ...data,
+  users: ensureDefaultAdminUsers(Array.isArray(data.users) ? data.users : []),
+});
 
 async function ensureDB() {
   try {
@@ -33,20 +49,24 @@ async function readDB() {
       sessions: Array.isArray(data.sessions) ? data.sessions : [],
     };
 
-    if (!normalized.users.some(user => user.id === DEFAULT_ADMIN_USER.id)) {
-      normalized.users.unshift({ ...DEFAULT_ADMIN_USER });
-      await writeDB(normalized);
-    }
-
-    return normalized;
+    return enrichWithDefaultAdmin(normalized);
   } catch {
     await fsp.writeFile(DB_PATH, JSON.stringify(DEFAULT_DATA, null, 2), 'utf8');
-    return { ...DEFAULT_DATA };
+    return enrichWithDefaultAdmin({ ...DEFAULT_DATA });
   }
 }
 
 async function writeDB(data) {
-  const out = JSON.stringify(data, null, 2);
+  const sanitizedUsers = Array.isArray(data.users)
+    ? data.users.filter(user => user.id !== DEFAULT_ADMIN_USER.id)
+    : [];
+
+  const persisted = {
+    ...data,
+    users: sanitizedUsers,
+  };
+
+  const out = JSON.stringify(persisted, null, 2);
   await fsp.writeFile(DB_PATH, out, 'utf8');
 }
 

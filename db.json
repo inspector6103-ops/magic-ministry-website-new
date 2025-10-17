@@ -1,11 +1,5 @@
 {
-  "users": [
-    {
-      "id": "admin",
-      "password": "admin123",
-      "role": "admin"
-    }
-  ],
+  "users": [],
   "petitions": [],
   "sessions": []
 }
