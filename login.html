@@ -18,14 +18,14 @@
   <main class="container narrow">
     <form class="form-card" id="login-form" novalidate>
       <label for="login-id">아이디</label>
-      <input id="login-id" type="text" name="id" placeholder="마법부 아이디" required>
+      <input id="login-id" type="text" name="id" placeholder="마법부 아이디" required autocomplete="username">
 
       <label for="login-password">비밀번호</label>
-      <input id="login-password" type="password" name="password" placeholder="비밀번호" required>
+      <input id="login-password" type="password" name="password" placeholder="비밀번호" required autocomplete="current-password">
 
       <button type="submit" class="button primary">로그인</button>
       <p class="form-note">계정이 없으신가요? <a href="signup.html">회원가입</a></p>
-      <p class="error-message" id="login-error" aria-live="polite" hidden>아이디 또는 비밀번호가 올바르지 않습니다.</p>
+      <p class="error-message" id="login-error" aria-live="polite" hidden></p>
     </form>
 
     <section class="list-section" aria-live="polite">
@@ -50,9 +50,9 @@
   </footer>
 
   <script>
-    const USERS_KEY = 'ministryUsers';
     const LOGIN_HISTORY_KEY = 'ministryLoginHistory';
     const CURRENT_USER_KEY = 'ministryCurrentUser';
+    const AUTH_TOKEN_KEY = 'ministryAuthToken';
 
     const form = document.getElementById('login-form');
     const errorMessage = document.getElementById('login-error');
@@ -63,15 +63,7 @@
     const registeredEmpty = document.getElementById('login-registered-empty');
     const historyList = document.getElementById('login-history-list');
     const historyEmpty = document.getElementById('login-history-empty');
-
-    const loadUsers = () => {
-      try {
-        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-      } catch (error) {
-        console.error('사용자 데이터를 불러올 수 없습니다.', error);
-        return [];
-      }
-    };
+    const registeredEmptyDefault = registeredEmpty.textContent;
 
     const loadHistory = () => {
       try {
@@ -86,28 +78,42 @@
       localStorage.setItem(LOGIN_HISTORY_KEY, JSON.stringify(history));
     };
 
-    const renderRegistered = () => {
-      const users = loadUsers();
+    const renderRegistered = async () => {
       registeredList.innerHTML = '';
-
-      if (!users.length) {
-        registeredEmpty.hidden = false;
-        return;
-      }
-
       registeredEmpty.hidden = true;
+      registeredEmpty.textContent = registeredEmptyDefault;
 
-      users.forEach(({ id }, index) => {
-        const item = document.createElement('li');
-        const name = document.createElement('strong');
-        name.textContent = id;
+      try {
+        const response = await fetch('/api/users/public');
 
-        const order = document.createElement('span');
-        order.textContent = `#${String(index + 1).padStart(2, '0')}`;
+        if (!response.ok) {
+          throw new Error('사용자 목록을 불러오지 못했습니다.');
+        }
 
-        item.append(name, order);
-        registeredList.appendChild(item);
-      });
+        const users = await response.json();
+
+        if (!users.length) {
+          registeredEmpty.textContent = registeredEmptyDefault;
+          registeredEmpty.hidden = false;
+          return;
+        }
+
+        users.forEach(({ id }, index) => {
+          const item = document.createElement('li');
+          const name = document.createElement('strong');
+          name.textContent = id;
+
+          const order = document.createElement('span');
+          order.textContent = `#${String(index + 1).padStart(2, '0')}`;
+
+          item.append(name, order);
+          registeredList.appendChild(item);
+        });
+      } catch (error) {
+        console.error(error);
+        registeredEmpty.textContent = '등록된 아이디 목록을 불러오지 못했습니다.';
+        registeredEmpty.hidden = false;
+      }
     };
 
     const renderHistory = () => {
@@ -134,34 +140,52 @@
       });
     };
 
-    form.addEventListener('submit', event => {
+    form.addEventListener('submit', async event => {
       event.preventDefault();
+      errorMessage.hidden = true;
 
       const id = loginIdInput.value.trim();
       const password = loginPasswordInput.value.trim();
 
       if (!id || !password) {
-        return;
-      }
-
-      const users = loadUsers();
-      const matchedUser = users.find(user => user.id === id && user.password === password);
-
-      if (!matchedUser) {
+        errorMessage.textContent = '아이디와 비밀번호를 모두 입력해주세요.';
         errorMessage.hidden = false;
         return;
       }
 
-      errorMessage.hidden = true;
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password })
+        });
 
-      const history = loadHistory();
-      const filteredHistory = history.filter(entry => entry !== id);
-      filteredHistory.unshift(id);
-      saveHistory(filteredHistory);
-      localStorage.setItem(CURRENT_USER_KEY, id);
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          errorMessage.textContent = payload.error || '아이디 또는 비밀번호가 올바르지 않습니다.';
+          errorMessage.hidden = false;
+          return;
+        }
 
-      renderHistory();
-      window.location.href = 'login-success.html';
+        const payload = await response.json();
+        const { token, user } = payload;
+        const history = loadHistory();
+        const userId = user?.id || id;
+        const filteredHistory = history.filter(entry => entry !== userId);
+        filteredHistory.unshift(userId);
+        saveHistory(filteredHistory);
+
+        localStorage.setItem(CURRENT_USER_KEY, userId);
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
+        localStorage.setItem('ministryCurrentRole', user?.role || 'user');
+
+        renderHistory();
+        window.location.href = 'login-success.html';
+      } catch (error) {
+        console.error('login failed', error);
+        errorMessage.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
+        errorMessage.hidden = false;
+      }
     });
 
     renderRegistered();
