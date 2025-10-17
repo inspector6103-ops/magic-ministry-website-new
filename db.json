@@ -1,4 +1,11 @@
 {
-  "users": [],
-  "petitions": []
+  "users": [
+    {
+      "id": "admin",
+      "password": "admin123",
+      "role": "admin"
+    }
+  ],
+  "petitions": [],
+  "sessions": []
 }

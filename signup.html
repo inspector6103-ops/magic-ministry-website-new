@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>회원가입 - 영국 마법부 포털</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="container">
+      <a class="logo" href="index.html">← 포털 홈으로</a>
+      <h1>마법부 회원가입</h1>
+      <p>공식 포털 서비스를 사용하려면 계정을 먼저 등록하세요.</p>
+    </div>
+  </header>
+
+  <main class="container narrow">
+    <form class="form-card" id="signup-form" novalidate>
+      <label for="signup-id">아이디</label>
+      <input id="signup-id" type="text" name="id" placeholder="마법부 아이디" required autocomplete="username">
+
+      <label for="signup-password">비밀번호</label>
+      <input id="signup-password" type="password" name="password" placeholder="비밀번호" required autocomplete="new-password">
+
+      <button type="submit" class="button primary">회원가입</button>
+      <p class="form-note">이미 계정이 있으신가요? <a href="login.html">로그인</a></p>
+      <p class="error-message" id="signup-error" aria-live="polite" hidden></p>
+      <p class="success-message" id="signup-success" aria-live="polite" hidden>회원가입이 완료되었습니다! 이제 로그인하세요.</p>
+    </form>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2024 영국 마법부. 모든 정보는 마법부 보안 규정에 의해 보호됩니다.</p>
+    </div>
+  </footer>
+
+  <script>
+    const form = document.getElementById('signup-form');
+    const idInput = document.getElementById('signup-id');
+    const passwordInput = document.getElementById('signup-password');
+    const errorMessage = document.getElementById('signup-error');
+    const successMessage = document.getElementById('signup-success');
+
+    const API_ENDPOINT = '/api/signup';
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      errorMessage.hidden = true;
+      successMessage.hidden = true;
+
+      const id = idInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!id || !password) {
+        errorMessage.textContent = '아이디와 비밀번호를 모두 입력해주세요.';
+        errorMessage.hidden = false;
+        return;
+      }
+
+      try {
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password })
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          if (response.status === 409) {
+            errorMessage.textContent = '이미 등록된 아이디입니다.';
+          } else {
+            errorMessage.textContent = payload.error || '회원가입 중 오류가 발생했습니다.';
+          }
+          errorMessage.hidden = false;
+          return;
+        }
+
+        successMessage.hidden = false;
+        form.reset();
+        idInput.focus();
+      } catch (error) {
+        console.error('signup failed', error);
+        errorMessage.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
+        errorMessage.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>

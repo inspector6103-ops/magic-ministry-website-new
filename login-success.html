@@ -42,7 +42,7 @@
 
   <script>
     const CURRENT_USER_KEY = 'ministryCurrentUser';
-    const USERS_KEY = 'ministryUsers';
+    const AUTH_TOKEN_KEY = 'ministryAuthToken';
 
     const currentUserLabel = document.getElementById('current-user');
     const registeredList = document.getElementById('success-user-list');
@@ -52,42 +52,46 @@
       window.location.href = 'login.html';
     };
 
-    const loadUsers = () => {
-      try {
-        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-      } catch (error) {
-        console.error('등록된 아이디를 불러오지 못했습니다.', error);
-        return [];
-      }
-    };
-
-    const renderUsers = () => {
-      const users = loadUsers();
+    const renderUsers = async () => {
       registeredList.innerHTML = '';
-
-      if (!users.length) {
-        emptyMessage.hidden = false;
-        return;
-      }
-
       emptyMessage.hidden = true;
 
-      users.forEach(({ id }, index) => {
-        const item = document.createElement('li');
-        const name = document.createElement('strong');
-        name.textContent = id;
+      try {
+        const response = await fetch('/api/users/public');
 
-        const order = document.createElement('span');
-        order.textContent = `#${String(index + 1).padStart(2, '0')}`;
+        if (!response.ok) {
+          throw new Error('사용자 목록 조회 실패');
+        }
 
-        item.append(name, order);
-        registeredList.appendChild(item);
-      });
+        const users = await response.json();
+
+        if (!users.length) {
+          emptyMessage.hidden = false;
+          return;
+        }
+
+        users.forEach(({ id }, index) => {
+          const item = document.createElement('li');
+          const name = document.createElement('strong');
+          name.textContent = id;
+
+          const order = document.createElement('span');
+          order.textContent = `#${String(index + 1).padStart(2, '0')}`;
+
+          item.append(name, order);
+          registeredList.appendChild(item);
+        });
+      } catch (error) {
+        console.error(error);
+        emptyMessage.textContent = '등록된 아이디를 불러오지 못했습니다.';
+        emptyMessage.hidden = false;
+      }
     };
 
     const currentUser = localStorage.getItem(CURRENT_USER_KEY);
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
-    if (!currentUser) {
+    if (!currentUser || !token) {
       redirectToLogin();
     } else {
       currentUserLabel.textContent = currentUser;
