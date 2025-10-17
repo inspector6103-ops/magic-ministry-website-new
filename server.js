@@ -14,6 +14,14 @@ const DB_PATH = path.join(__dirname, 'db.json');
 const DEFAULT_ADMIN_USER = { id: 'admin', password: 'admin123', role: 'admin' };
 const DEFAULT_DATA = { users: [], petitions: [], sessions: [] };
 
+const generateToken = () => {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return crypto.randomBytes(32).toString('hex');
+};
+
 const ensureDefaultAdminUsers = users => {
   if (users.some(user => user.id === DEFAULT_ADMIN_USER.id)) {
     return users;
@@ -77,7 +85,7 @@ const AUTH_TOKEN_HEADER = 'authorization';
 const sanitizeUser = user => ({ id: user.id, role: user.role || 'user' });
 
 const createSession = (db, user) => {
-  const token = crypto.randomUUID();
+  const token = generateToken();
   const session = {
     token,
     userId: user.id,
@@ -160,7 +168,13 @@ app.post('/api/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
-  const session = createSession(db, user);
+  let session;
+  try {
+    session = createSession(db, user);
+  } catch (error) {
+    console.error('Failed to create session', error);
+    return res.status(500).json({ error: 'Unable to start session' });
+  }
   await writeDB(db);
 
   res.json({
