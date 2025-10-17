@@ -29,16 +29,6 @@
     </section>
 
     <div id="admin-content" class="admin-wrapper" hidden>
-      <section class="form-card admin-panel" id="admin-actions">
-        <h2>보안 데이터 열람</h2>
-        <p class="list-help">관리자 권한으로 서버에 저장된 회원 목록과 민원 기록을 불러옵니다.</p>
-        <div class="button-row">
-          <button id="admin-refresh" class="button primary" type="button">회원/민원 보기</button>
-          <a class="button" href="login.html">관리자 계정으로 로그인</a>
-        </div>
-        <p class="error-message" id="admin-fetch-error" aria-live="polite" hidden></p>
-      </section>
-
       <section class="list-section admin-panel" aria-live="polite">
         <h2>등록된 마법부 회원</h2>
         <p class="list-help">회원가입을 완료한 아이디와 보안 확인용 비밀번호 목록입니다.</p>
@@ -70,15 +60,10 @@
     </div>
   </footer>
 
-  <script src="auth.js"></script>
   <script>
     const SECRET_PASSPHRASE = 'MischiefManaged!';
-    const {
-      getToken,
-      getRole,
-      clearSession,
-      isAuthenticated,
-    } = window.ministryAuth;
+    const USERS_KEY = 'ministryUsers';
+    const PETITIONS_KEY = 'ministryPetitions';
     const ADMIN_SESSION_KEY = 'ministryAdminUnlocked';
 
     const adminLock = document.getElementById('admin-lock');
@@ -87,12 +72,28 @@
     const passphraseInput = document.getElementById('admin-passphrase');
     const unlockError = document.getElementById('unlock-error');
 
-    const adminRefreshButton = document.getElementById('admin-refresh');
-    const adminFetchError = document.getElementById('admin-fetch-error');
     const usersTableBody = document.getElementById('admin-users-body');
     const usersEmptyMessage = document.getElementById('admin-users-empty');
     const petitionsList = document.getElementById('admin-petitions-list');
     const petitionsEmptyMessage = document.getElementById('admin-petitions-empty');
+
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('사용자 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
+
+    const loadPetitions = () => {
+      try {
+        return JSON.parse(localStorage.getItem(PETITIONS_KEY)) || [];
+      } catch (error) {
+        console.error('민원 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
 
     const createMultilineParagraph = text => {
       const paragraph = document.createElement('p');
@@ -109,7 +110,8 @@
       return paragraph;
     };
 
-    const renderUsers = users => {
+    const renderUsers = () => {
+      const users = loadUsers();
       usersTableBody.innerHTML = '';
 
       if (!users.length) {
@@ -136,7 +138,8 @@
       });
     };
 
-    const renderPetitions = petitions => {
+    const renderPetitions = () => {
+      const petitions = loadPetitions();
       petitionsList.innerHTML = '';
 
       if (!petitions.length) {
@@ -147,7 +150,7 @@
       petitionsEmptyMessage.hidden = true;
 
       petitions
-        .sort((a, b) => new Date(b.timestamp || b.time) - new Date(a.timestamp || a.time))
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .forEach(petition => {
           const listItem = document.createElement('li');
           listItem.className = 'petition-item';
@@ -167,67 +170,18 @@
           const contentParagraph = createMultilineParagraph(petition.content);
 
           const time = document.createElement('time');
-          const dateValue = petition.timestamp || petition.time;
-          time.textContent = dateValue ? new Date(dateValue).toLocaleString('ko-KR') : '시간 정보 없음';
+          time.textContent = new Date(petition.timestamp).toLocaleString('ko-KR');
 
           listItem.append(header, contentParagraph, time);
           petitionsList.appendChild(listItem);
         });
     };
 
-    const fetchAdminData = async () => {
-      adminFetchError.hidden = true;
-
-      const token = getToken();
-      const role = getRole();
-
-      if (!token || role !== 'admin') {
-        adminFetchError.textContent = '관리자 계정으로 로그인 후 다시 시도하세요.';
-        adminFetchError.hidden = false;
-        return;
-      }
-
-      try {
-        const [usersResponse, petitionsResponse] = await Promise.all([
-          fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } }),
-          fetch('/api/admin/petitions', { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
-
-        if ([usersResponse.status, petitionsResponse.status].some(status => status === 401 || status === 403)) {
-          usersTableBody.innerHTML = '';
-          petitionsList.innerHTML = '';
-          usersEmptyMessage.hidden = false;
-          petitionsEmptyMessage.hidden = false;
-          adminFetchError.textContent = '관리자 권한이 없습니다. 관리자 계정으로 다시 로그인하세요.';
-          adminFetchError.hidden = false;
-          clearSession();
-          return;
-        }
-
-        if (!usersResponse.ok || !petitionsResponse.ok) {
-          throw new Error('failed to fetch admin data');
-        }
-
-        const [users, petitions] = await Promise.all([
-          usersResponse.json(),
-          petitionsResponse.json(),
-        ]);
-
-        renderUsers(users);
-        renderPetitions(petitions);
-      } catch (error) {
-        console.error(error);
-        adminFetchError.textContent = '서버에서 데이터를 불러오지 못했습니다.';
-        adminFetchError.hidden = false;
-      }
-    };
-
     const unlockAdmin = () => {
       adminLock.hidden = true;
       adminContent.hidden = false;
-      if (isAuthenticated() && getRole() === 'admin') {
-        fetchAdminData();
-      }
+      renderUsers();
+      renderPetitions();
     };
 
     unlockForm.addEventListener('submit', event => {
@@ -250,8 +204,6 @@
     passphraseInput.addEventListener('input', () => {
       unlockError.hidden = true;
     });
-
-    adminRefreshButton.addEventListener('click', fetchAdminData);
 
     const hasUnlocked = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 

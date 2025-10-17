@@ -18,16 +18,14 @@
   <main class="container narrow">
     <form class="form-card" id="login-form" novalidate>
       <label for="login-id">아이디</label>
-      <input id="login-id" type="text" name="id" placeholder="마법부 아이디" required autocomplete="username">
+      <input id="login-id" type="text" name="id" placeholder="마법부 아이디" required>
 
       <label for="login-password">비밀번호</label>
-      <input id="login-password" type="password" name="password" placeholder="비밀번호" required autocomplete="current-password">
+      <input id="login-password" type="password" name="password" placeholder="비밀번호" required>
 
       <button type="submit" class="button primary">로그인</button>
       <p class="form-note">계정이 없으신가요? <a href="signup.html">회원가입</a></p>
-      <p class="form-note">관리자 기본 계정: <code>admin</code> / <code>admin123</code></p>
-      <p class="error-message" id="login-error" aria-live="polite" hidden></p>
-      <p class="form-note" id="login-session-note" hidden></p>
+      <p class="error-message" id="login-error" aria-live="polite" hidden>아이디 또는 비밀번호가 올바르지 않습니다.</p>
     </form>
 
     <section class="list-section" aria-live="polite">
@@ -51,29 +49,29 @@
     </div>
   </footer>
 
-  <script src="auth.js"></script>
   <script>
+    const USERS_KEY = 'ministryUsers';
     const LOGIN_HISTORY_KEY = 'ministryLoginHistory';
-
-    const {
-      setSession,
-      clearSession,
-      isAuthenticated,
-      getUser,
-      getRole,
-    } = window.ministryAuth;
+    const CURRENT_USER_KEY = 'ministryCurrentUser';
 
     const form = document.getElementById('login-form');
     const errorMessage = document.getElementById('login-error');
     const loginIdInput = document.getElementById('login-id');
     const loginPasswordInput = document.getElementById('login-password');
-    const sessionNote = document.getElementById('login-session-note');
 
     const registeredList = document.getElementById('login-user-list');
     const registeredEmpty = document.getElementById('login-registered-empty');
     const historyList = document.getElementById('login-history-list');
     const historyEmpty = document.getElementById('login-history-empty');
-    const registeredEmptyDefault = registeredEmpty.textContent;
+
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('사용자 데이터를 불러올 수 없습니다.', error);
+        return [];
+      }
+    };
 
     const loadHistory = () => {
       try {
@@ -88,42 +86,28 @@
       localStorage.setItem(LOGIN_HISTORY_KEY, JSON.stringify(history));
     };
 
-    const renderRegistered = async () => {
+    const renderRegistered = () => {
+      const users = loadUsers();
       registeredList.innerHTML = '';
-      registeredEmpty.hidden = true;
-      registeredEmpty.textContent = registeredEmptyDefault;
 
-      try {
-        const response = await fetch('/api/users/public');
-
-        if (!response.ok) {
-          throw new Error('사용자 목록을 불러오지 못했습니다.');
-        }
-
-        const users = await response.json();
-
-        if (!users.length) {
-          registeredEmpty.textContent = registeredEmptyDefault;
-          registeredEmpty.hidden = false;
-          return;
-        }
-
-        users.forEach(({ id }, index) => {
-          const item = document.createElement('li');
-          const name = document.createElement('strong');
-          name.textContent = id;
-
-          const order = document.createElement('span');
-          order.textContent = `#${String(index + 1).padStart(2, '0')}`;
-
-          item.append(name, order);
-          registeredList.appendChild(item);
-        });
-      } catch (error) {
-        console.error(error);
-        registeredEmpty.textContent = '등록된 아이디 목록을 불러오지 못했습니다.';
+      if (!users.length) {
         registeredEmpty.hidden = false;
+        return;
       }
+
+      registeredEmpty.hidden = true;
+
+      users.forEach(({ id }, index) => {
+        const item = document.createElement('li');
+        const name = document.createElement('strong');
+        name.textContent = id;
+
+        const order = document.createElement('span');
+        order.textContent = `#${String(index + 1).padStart(2, '0')}`;
+
+        item.append(name, order);
+        registeredList.appendChild(item);
+      });
     };
 
     const renderHistory = () => {
@@ -150,64 +134,35 @@
       });
     };
 
-    form.addEventListener('submit', async event => {
+    form.addEventListener('submit', event => {
       event.preventDefault();
-      errorMessage.hidden = true;
 
       const id = loginIdInput.value.trim();
       const password = loginPasswordInput.value.trim();
 
       if (!id || !password) {
-        errorMessage.textContent = '아이디와 비밀번호를 모두 입력해주세요.';
+        return;
+      }
+
+      const users = loadUsers();
+      const matchedUser = users.find(user => user.id === id && user.password === password);
+
+      if (!matchedUser) {
         errorMessage.hidden = false;
         return;
       }
 
-      try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, password })
-        });
+      errorMessage.hidden = true;
 
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          errorMessage.textContent = payload.error || '아이디 또는 비밀번호가 올바르지 않습니다.';
-          errorMessage.hidden = false;
-          if (response.status === 401) {
-            clearSession();
-          }
-          return;
-        }
+      const history = loadHistory();
+      const filteredHistory = history.filter(entry => entry !== id);
+      filteredHistory.unshift(id);
+      saveHistory(filteredHistory);
+      localStorage.setItem(CURRENT_USER_KEY, id);
 
-        const payload = await response.json();
-        const { token, user } = payload;
-        const history = loadHistory();
-        const userId = user?.id || id;
-        const filteredHistory = history.filter(entry => entry !== userId);
-        filteredHistory.unshift(userId);
-        saveHistory(filteredHistory);
-
-        setSession({ token, userId, role: user?.role || 'user' });
-
-        renderHistory();
-        window.location.href = 'login-success.html';
-      } catch (error) {
-        console.error('login failed', error);
-        errorMessage.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
-        errorMessage.hidden = false;
-      }
+      renderHistory();
+      window.location.href = 'login-success.html';
     });
-
-    if (isAuthenticated()) {
-      const name = getUser();
-      sessionNote.hidden = false;
-      const role = getRole();
-      const roleLabel = role === 'admin' ? '관리자' : '일반 사용자';
-      sessionNote.innerHTML = `현재 <strong>${name}</strong> (${roleLabel}) 계정으로 로그인된 상태입니다. <a href="login-success.html">로그인 완료 페이지로 이동</a>`;
-    } else {
-      sessionNote.hidden = true;
-    }
 
     renderRegistered();
     renderHistory();

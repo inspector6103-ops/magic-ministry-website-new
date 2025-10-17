@@ -37,15 +37,28 @@
   </footer>
 
   <script>
+    const USERS_KEY = 'ministryUsers';
+
     const form = document.getElementById('signup-form');
     const idInput = document.getElementById('signup-id');
     const passwordInput = document.getElementById('signup-password');
     const errorMessage = document.getElementById('signup-error');
     const successMessage = document.getElementById('signup-success');
 
-    const API_ENDPOINT = '/api/signup';
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('저장된 사용자 정보를 불러올 수 없습니다.', error);
+        return [];
+      }
+    };
 
-    form.addEventListener('submit', async event => {
+    const saveUsers = users => {
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    };
+
+    form.addEventListener('submit', event => {
       event.preventDefault();
       errorMessage.hidden = true;
       successMessage.hidden = true;
@@ -59,32 +72,19 @@
         return;
       }
 
-      try {
-        const response = await fetch(API_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, password })
-        });
-
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          if (response.status === 409) {
-            errorMessage.textContent = '이미 등록된 아이디입니다.';
-          } else {
-            errorMessage.textContent = payload.error || '회원가입 중 오류가 발생했습니다.';
-          }
-          errorMessage.hidden = false;
-          return;
-        }
-
-        successMessage.hidden = false;
-        form.reset();
-        idInput.focus();
-      } catch (error) {
-        console.error('signup failed', error);
-        errorMessage.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
+      const users = loadUsers();
+      if (users.some(user => user.id === id)) {
+        errorMessage.textContent = '이미 등록된 아이디입니다.';
         errorMessage.hidden = false;
+        return;
       }
+
+      users.push({ id, password });
+      saveUsers(users);
+
+      successMessage.hidden = false;
+      form.reset();
+      idInput.focus();
     });
   </script>
 </body>
