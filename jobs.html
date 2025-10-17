@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>직업 신청하기 - 영국 마법부 포털</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="container">
+      <a class="logo" href="index.html">← 포털 홈으로</a>
+      <h1>마법부 직업 신청</h1>
+      <p>마법 세계의 다양한 부서에서 당신의 재능을 기다립니다.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="job-list">
+      <h2>모집 중인 대표 직무</h2>
+      <div class="job-grid">
+        <article class="job-card">
+          <h3>오러 (Auror)</h3>
+          <p>어둠의 마법사와 마녀로부터 마법 세계를 지키는 최고 수준의 엘리트 부대.</p>
+          <ul>
+            <li>엄격한 체력 및 마법 능력 평가</li>
+            <li>고급 방어 마법 숙련도 요구</li>
+          </ul>
+        </article>
+        <article class="job-card">
+          <h3>마법 사고 및 재난부 요원</h3>
+          <p>예측 불가한 마법 사고 현장을 통제하고 머글 노출을 방지합니다.</p>
+          <ul>
+            <li>빠른 상황 판단력</li>
+            <li>기억 지우개 사용 자격증 우대</li>
+          </ul>
+        </article>
+        <article class="job-card">
+          <h3>국제 마법 협력부 외교관</h3>
+          <p>전 세계 마법 정부와 협력하여 국제 협약을 조율합니다.</p>
+          <ul>
+            <li>다국어 구사 능력</li>
+            <li>국제법 및 마법 규정 이해도</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2>직업 신청하기</h2>
+      <form class="form-card" id="job-form">
+        <label for="job-name">이름</label>
+        <input id="job-name" type="text" name="name" placeholder="지원자 이름" required>
+
+        <label for="job-role">희망 직무</label>
+        <input id="job-role" type="text" name="role" placeholder="지원하고 싶은 직무를 입력하세요" required>
+
+        <label for="job-intro">자기소개</label>
+        <textarea id="job-intro" name="intro" rows="5" placeholder="간단한 자기소개와 경험을 작성해주세요." required></textarea>
+
+        <button type="submit" class="button primary">신청서 제출</button>
+        <p class="success-message" id="job-success" aria-live="polite" hidden>신청서가 임시로 저장되었습니다. 담당 부서가 곧 연락드릴 예정입니다.</p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2024 영국 마법부. 인사국이 모든 지원서를 검토합니다.</p>
+    </div>
+  </footer>
+
+  <script>
+    const jobForm = document.getElementById('job-form');
+    const jobSuccess = document.getElementById('job-success');
+
+    jobForm.addEventListener('submit', event => {
+      event.preventDefault();
+      jobSuccess.hidden = false;
+      jobForm.reset();
+      jobForm.name?.focus();
+    });
+  </script>
+</body>
+</html>

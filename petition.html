@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>총리에게 바란다 - 영국 마법부 포털</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="container">
+      <a class="logo" href="index.html">← 포털 홈으로</a>
+      <h1>총리에게 바란다</h1>
+      <p>마법 사회의 목소리를 전하세요. 접수된 민원은 내부 검토 후 마법부 총리에게 전달됩니다.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="form-section">
+      <form class="form-card" id="petition-form">
+        <label for="petition-name">이름</label>
+        <input id="petition-name" type="text" name="name" placeholder="작성자 이름" required>
+
+        <label for="petition-topic">분류</label>
+        <select id="petition-topic" name="topic" required>
+          <option value="">분류 선택</option>
+          <option value="안전">마법 보안 및 안전</option>
+          <option value="교육">호그와트 및 교육</option>
+          <option value="행정">행정 서비스 개선</option>
+          <option value="노동">노동 및 근로 환경</option>
+        </select>
+
+        <label for="petition-content">민원 내용</label>
+        <textarea id="petition-content" name="content" rows="6" placeholder="민원 내용을 자세히 작성해주세요." required></textarea>
+
+        <button type="submit" class="button primary">민원 등록</button>
+      </form>
+    </section>
+
+    <section class="list-section">
+      <h2>접수된 민원</h2>
+      <p class="list-help">아래 목록은 이 단말기에 기록된 최신 민원입니다.</p>
+      <p class="list-help" id="petition-empty" hidden>아직 접수된 민원이 없습니다.</p>
+      <ul id="petition-list" class="petition-list" aria-live="polite"></ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2024 영국 마법부. 마법부 기록 보관소에 의해 관리됩니다.</p>
+    </div>
+  </footer>
+
+  <script>
+    const PETITIONS_KEY = 'ministryPetitions';
+
+    const petitionForm = document.getElementById('petition-form');
+    const petitionList = document.getElementById('petition-list');
+    const petitionEmpty = document.getElementById('petition-empty');
+
+    const loadPetitions = () => {
+      try {
+        return JSON.parse(localStorage.getItem(PETITIONS_KEY)) || [];
+      } catch (error) {
+        console.error('민원 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
+
+    const savePetitions = petitions => {
+      localStorage.setItem(PETITIONS_KEY, JSON.stringify(petitions));
+    };
+
+    const createMultilineParagraph = text => {
+      const paragraph = document.createElement('p');
+      const lines = text.split('\n');
+
+      lines.forEach((line, index) => {
+        paragraph.append(document.createTextNode(line));
+
+        if (index < lines.length - 1) {
+          paragraph.append(document.createElement('br'));
+        }
+      });
+
+      return paragraph;
+    };
+
+    const renderPetitions = () => {
+      const petitions = loadPetitions();
+      petitionList.innerHTML = '';
+
+      if (!petitions.length) {
+        petitionEmpty.hidden = false;
+        return;
+      }
+
+      petitionEmpty.hidden = true;
+
+      petitions
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .forEach(petition => {
+          const listItem = document.createElement('li');
+          listItem.className = 'petition-item';
+
+          const header = document.createElement('div');
+          header.className = 'petition-header';
+
+          const nameLabel = document.createElement('strong');
+          nameLabel.textContent = petition.name;
+
+          const topicBadge = document.createElement('span');
+          topicBadge.className = 'badge';
+          topicBadge.textContent = petition.topic;
+
+          header.append(nameLabel, topicBadge);
+
+          const contentParagraph = createMultilineParagraph(petition.content);
+
+          const time = document.createElement('time');
+          time.textContent = new Date(petition.timestamp).toLocaleString('ko-KR');
+
+          listItem.append(header, contentParagraph, time);
+          petitionList.appendChild(listItem);
+        });
+    };
+
+    petitionForm.addEventListener('submit', event => {
+      event.preventDefault();
+
+      const name = petitionForm.name.value.trim();
+      const topic = petitionForm.topic.value;
+      const content = petitionForm.content.value.trim();
+
+      if (!name || !topic || !content) {
+        return;
+      }
+
+      const petitions = loadPetitions();
+      petitions.push({
+        name,
+        topic,
+        content,
+        timestamp: new Date().toISOString()
+      });
+
+      savePetitions(petitions);
+      renderPetitions();
+      petitionForm.reset();
+      petitionForm.name.focus();
+    });
+
+    renderPetitions();
+  </script>
+</body>
+</html>

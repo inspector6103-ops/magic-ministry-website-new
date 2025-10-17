@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>비밀 관리자실 - 영국 마법부 포털</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="container">
+      <a class="logo" href="index.html">← 일반 포털로 돌아가기</a>
+      <h1>비밀 관리자실</h1>
+      <p>권한이 부여된 보안 담당자만 접근 가능한 마법부 기록실입니다.</p>
+    </div>
+  </header>
+
+  <main class="container narrow" id="admin-root">
+    <section class="form-card" id="admin-lock">
+      <h2>보안 해제</h2>
+      <p class="list-help">마법부 비밀 구문을 입력해야 민원과 회원 명부를 열람할 수 있습니다.</p>
+      <form id="unlock-form" autocomplete="off">
+        <label for="admin-passphrase">보안 구문</label>
+        <input id="admin-passphrase" type="password" name="passphrase" placeholder="암구호를 입력하세요" required>
+        <button type="submit" class="button primary">기밀 열람</button>
+        <p class="error-message" id="unlock-error" aria-live="polite" hidden>암구호가 올바르지 않습니다. 다시 시도하세요.</p>
+      </form>
+      <p class="secret-hint">* 힌트: 포털 개발팀이 즐겨 쓰는 마법 구문을 떠올려 보세요.</p>
+    </section>
+
+    <div id="admin-content" class="admin-wrapper" hidden>
+      <section class="list-section admin-panel" aria-live="polite">
+        <h2>등록된 마법부 회원</h2>
+        <p class="list-help">회원가입을 완료한 아이디와 보안 확인용 비밀번호 목록입니다.</p>
+        <p class="list-help" id="admin-users-empty" hidden>아직 등록된 회원이 없습니다.</p>
+        <table class="admin-table" id="admin-users-table" aria-describedby="admin-users-empty">
+          <thead>
+            <tr>
+              <th scope="col">번호</th>
+              <th scope="col">아이디</th>
+              <th scope="col">비밀번호</th>
+            </tr>
+          </thead>
+          <tbody id="admin-users-body"></tbody>
+        </table>
+      </section>
+
+      <section class="list-section admin-panel" aria-live="polite">
+        <h2>접수된 민원 기록</h2>
+        <p class="list-help">총리에게 바란다에서 접수된 최신 민원 순입니다.</p>
+        <p class="list-help" id="admin-petitions-empty" hidden>아직 접수된 민원이 없습니다.</p>
+        <ul class="petition-list admin-petitions" id="admin-petitions-list"></ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2024 영국 마법부. 허가되지 않은 접근은 기억 제거 주문의 대상이 됩니다.</p>
+    </div>
+  </footer>
+
+  <script>
+    const SECRET_PASSPHRASE = 'MischiefManaged!';
+    const USERS_KEY = 'ministryUsers';
+    const PETITIONS_KEY = 'ministryPetitions';
+    const ADMIN_SESSION_KEY = 'ministryAdminUnlocked';
+
+    const adminLock = document.getElementById('admin-lock');
+    const adminContent = document.getElementById('admin-content');
+    const unlockForm = document.getElementById('unlock-form');
+    const passphraseInput = document.getElementById('admin-passphrase');
+    const unlockError = document.getElementById('unlock-error');
+
+    const usersTableBody = document.getElementById('admin-users-body');
+    const usersEmptyMessage = document.getElementById('admin-users-empty');
+    const petitionsList = document.getElementById('admin-petitions-list');
+    const petitionsEmptyMessage = document.getElementById('admin-petitions-empty');
+
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('사용자 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
+
+    const loadPetitions = () => {
+      try {
+        return JSON.parse(localStorage.getItem(PETITIONS_KEY)) || [];
+      } catch (error) {
+        console.error('민원 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
+
+    const createMultilineParagraph = text => {
+      const paragraph = document.createElement('p');
+      const lines = text.split('\n');
+
+      lines.forEach((line, index) => {
+        paragraph.append(document.createTextNode(line));
+
+        if (index < lines.length - 1) {
+          paragraph.append(document.createElement('br'));
+        }
+      });
+
+      return paragraph;
+    };
+
+    const renderUsers = () => {
+      const users = loadUsers();
+      usersTableBody.innerHTML = '';
+
+      if (!users.length) {
+        usersEmptyMessage.hidden = false;
+        return;
+      }
+
+      usersEmptyMessage.hidden = true;
+
+      users.forEach((user, index) => {
+        const row = document.createElement('tr');
+
+        const orderCell = document.createElement('td');
+        orderCell.textContent = `#${String(index + 1).padStart(2, '0')}`;
+
+        const idCell = document.createElement('td');
+        idCell.textContent = user.id;
+
+        const passwordCell = document.createElement('td');
+        passwordCell.textContent = user.password;
+
+        row.append(orderCell, idCell, passwordCell);
+        usersTableBody.appendChild(row);
+      });
+    };
+
+    const renderPetitions = () => {
+      const petitions = loadPetitions();
+      petitionsList.innerHTML = '';
+
+      if (!petitions.length) {
+        petitionsEmptyMessage.hidden = false;
+        return;
+      }
+
+      petitionsEmptyMessage.hidden = true;
+
+      petitions
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .forEach(petition => {
+          const listItem = document.createElement('li');
+          listItem.className = 'petition-item';
+
+          const header = document.createElement('div');
+          header.className = 'petition-header';
+
+          const nameLabel = document.createElement('strong');
+          nameLabel.textContent = petition.name;
+
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = petition.topic;
+
+          header.append(nameLabel, badge);
+
+          const contentParagraph = createMultilineParagraph(petition.content);
+
+          const time = document.createElement('time');
+          time.textContent = new Date(petition.timestamp).toLocaleString('ko-KR');
+
+          listItem.append(header, contentParagraph, time);
+          petitionsList.appendChild(listItem);
+        });
+    };
+
+    const unlockAdmin = () => {
+      adminLock.hidden = true;
+      adminContent.hidden = false;
+      renderUsers();
+      renderPetitions();
+    };
+
+    unlockForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const passphrase = passphraseInput.value.trim();
+
+      if (passphrase !== SECRET_PASSPHRASE) {
+        unlockError.hidden = false;
+        passphraseInput.focus();
+        passphraseInput.select();
+        return;
+      }
+
+      unlockError.hidden = true;
+      passphraseInput.value = '';
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      unlockAdmin();
+    });
+
+    passphraseInput.addEventListener('input', () => {
+      unlockError.hidden = true;
+    });
+
+    const hasUnlocked = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+
+    if (hasUnlocked) {
+      unlockAdmin();
+    } else {
+      adminLock.hidden = false;
+      adminContent.hidden = true;
+      passphraseInput.focus();
+    }
+  </script>
+</body>
+</html>
