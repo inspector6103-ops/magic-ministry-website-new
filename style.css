@@ -425,6 +425,16 @@ a:focus {
   border-top: 1px solid rgba(197, 167, 105, 0.15);
 }
 
+.footer-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.footer-actions .button {
+  align-self: center;
+}
+
 .logo {
   color: var(--muted);
   display: inline-block;
