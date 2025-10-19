@@ -36,6 +36,7 @@
       <h2>등록된 마법부 아이디</h2>
       <p class="list-help">회원가입을 완료한 아이디가 최신 순으로 표시됩니다.</p>
       <p class="list-help" id="signup-registered-empty" hidden>아직 등록된 아이디가 없습니다.</p>
+      <p class="error-message" id="signup-registered-error" hidden>등록된 아이디를 불러올 수 없습니다.</p>
       <ul class="user-list" id="signup-user-list"></ul>
     </section>
   </main>
@@ -47,28 +48,22 @@
   </footer>
 
   <script>
-    const USERS_KEY = 'ministryUsers';
-    const API_ENDPOINT = '/api/signup';
+    const API_SIGNUP = '/api/signup';
+    const API_ROSTER = '/api/signup/roster';
 
     const form = document.getElementById('signup-form');
     const idInput = document.getElementById('signup-id');
     const passwordInput = document.getElementById('signup-password');
+    const submitButton = form.querySelector('button[type="submit"]');
     const errorMessage = document.getElementById('signup-error');
     const successMessage = document.getElementById('signup-success');
     const registeredList = document.getElementById('signup-user-list');
     const registeredEmpty = document.getElementById('signup-registered-empty');
+    const registeredError = document.getElementById('signup-registered-error');
 
-    const loadUsers = () => {
-      try {
-        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-      } catch (error) {
-        console.error('저장된 사용자 정보를 불러올 수 없습니다.', error);
-        return [];
-      }
-    };
-
-    const saveUsers = users => {
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    const setSubmitting = isSubmitting => {
+      submitButton.disabled = isSubmitting;
+      submitButton.textContent = isSubmitting ? '등록 중...' : '회원가입';
     };
 
     const hideMessages = () => {
@@ -77,47 +72,57 @@
       successMessage.hidden = true;
     };
 
-    const renderRegistered = () => {
-      const users = loadUsers();
+    const renderRegistered = users => {
       registeredList.innerHTML = '';
 
       if (!users.length) {
         registeredEmpty.hidden = false;
+        registeredError.hidden = true;
         return;
       }
 
       registeredEmpty.hidden = true;
+      registeredError.hidden = true;
 
-      users
-        .slice()
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      users.forEach(({ id, createdAt }, index) => {
+        const item = document.createElement('li');
+        const details = document.createElement('div');
+        details.className = 'user-entry-details';
 
-          return bTime - aTime;
-        })
-        .forEach(({ id, createdAt }, index) => {
-          const item = document.createElement('li');
-          const details = document.createElement('div');
-          details.className = 'user-entry-details';
+        const name = document.createElement('strong');
+        name.textContent = id;
+        details.appendChild(name);
 
-          const name = document.createElement('strong');
-          name.textContent = id;
-          details.appendChild(name);
+        if (createdAt) {
+          const time = document.createElement('time');
+          time.dateTime = createdAt;
+          time.textContent = new Date(createdAt).toLocaleString('ko-KR');
+          details.appendChild(time);
+        }
 
-          if (createdAt) {
-            const time = document.createElement('time');
-            time.dateTime = createdAt;
-            time.textContent = new Date(createdAt).toLocaleString('ko-KR');
-            details.appendChild(time);
-          }
+        const order = document.createElement('span');
+        order.textContent = `#${String(index + 1).padStart(2, '0')}`;
 
-          const order = document.createElement('span');
-          order.textContent = `#${String(index + 1).padStart(2, '0')}`;
+        item.append(details, order);
+        registeredList.appendChild(item);
+      });
+    };
 
-          item.append(details, order);
-          registeredList.appendChild(item);
-        });
+    const loadRoster = async () => {
+      try {
+        const response = await fetch(API_ROSTER);
+        if (!response.ok) {
+          throw new Error('등록된 아이디를 불러올 수 없습니다.');
+        }
+        const payload = await response.json();
+        const users = Array.isArray(payload.users) ? payload.users : [];
+        renderRegistered(users);
+      } catch (error) {
+        console.error(error);
+        registeredList.innerHTML = '';
+        registeredEmpty.hidden = true;
+        registeredError.hidden = false;
+      }
     };
 
     form.addEventListener('submit', async event => {
@@ -147,15 +152,10 @@
         return;
       }
 
-      const users = loadUsers();
-      if (users.some(user => user.id === id)) {
-        errorMessage.textContent = '이미 등록된 아이디입니다.';
-        errorMessage.hidden = false;
-        return;
-      }
-
       try {
-        const response = await fetch(API_ENDPOINT, {
+        setSubmitting(true);
+
+        const response = await fetch(API_SIGNUP, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, password }),
@@ -175,32 +175,23 @@
           return;
         }
 
-        const createdAt = payload && payload.user && payload.user.createdAt
-          ? payload.user.createdAt
-          : new Date().toISOString();
-
-        users.push({
-          id,
-          password,
-          createdAt,
-        });
-        saveUsers(users);
-
         successMessage.hidden = false;
         form.reset();
-        renderRegistered();
+        await loadRoster();
         idInput.focus();
       } catch (error) {
         console.error('회원가입 요청이 실패했습니다.', error);
         errorMessage.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
         errorMessage.hidden = false;
+      } finally {
+        setSubmitting(false);
       }
     });
 
     idInput.addEventListener('input', hideMessages);
     passwordInput.addEventListener('input', hideMessages);
 
-    renderRegistered();
+    loadRoster();
   </script>
 </body>
 </html>

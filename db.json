@@ -1,4 +1,32 @@
 {
-  "users": [],
-  "petitions": []
+  "users": [
+    {
+      "id": "admin",
+      "password": "admin123",
+      "role": "admin",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "tester",
+      "password": "magic",
+      "role": "user",
+      "createdAt": "2025-10-19T11:22:00.317Z"
+    }
+  ],
+  "petitions": [
+    {
+      "name": "테스터",
+      "topic": "안전",
+      "content": "테스트 민원",
+      "timestamp": "2025-10-19T11:22:11.578Z",
+      "userId": "tester"
+    }
+  ],
+  "sessions": [
+    {
+      "token": "1d8c97a6-5883-428b-a0b7-e079598dafe8",
+      "userId": "admin",
+      "createdAt": "2025-10-19T11:22:16.052Z"
+    }
+  ]
 }

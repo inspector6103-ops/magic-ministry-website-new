@@ -162,6 +162,11 @@ a:focus {
   color: #1b2436;
 }
 
+.button.secondary {
+  background: rgba(27, 36, 54, 0.1);
+  color: #1b2436;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
