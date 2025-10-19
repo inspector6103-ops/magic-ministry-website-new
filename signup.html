@@ -48,6 +48,7 @@
 
   <script>
     const USERS_KEY = 'ministryUsers';
+    const API_ENDPOINT = '/api/signup';
 
     const form = document.getElementById('signup-form');
     const idInput = document.getElementById('signup-id');
@@ -119,7 +120,7 @@
         });
     };
 
-    form.addEventListener('submit', event => {
+    form.addEventListener('submit', async event => {
       event.preventDefault();
       hideMessages();
 
@@ -153,17 +154,40 @@
         return;
       }
 
-      users.push({
-        id,
-        password,
-        createdAt: new Date().toISOString(),
-      });
-      saveUsers(users);
+      try {
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password }),
+        });
 
-      successMessage.hidden = false;
-      form.reset();
-      renderRegistered();
-      idInput.focus();
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          if (response.status === 409) {
+            errorMessage.textContent = '이미 등록된 아이디입니다.';
+          } else {
+            errorMessage.textContent = payload.error || '회원가입 중 오류가 발생했습니다.';
+          }
+          errorMessage.hidden = false;
+          return;
+        }
+
+        users.push({
+          id,
+          password,
+          createdAt: new Date().toISOString(),
+        });
+        saveUsers(users);
+
+        successMessage.hidden = false;
+        form.reset();
+        renderRegistered();
+        idInput.focus();
+      } catch (error) {
+        console.error('회원가입 요청이 실패했습니다.', error);
+        errorMessage.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
+        errorMessage.hidden = false;
+      }
     });
 
     idInput.addEventListener('input', hideMessages);
