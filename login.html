@@ -49,22 +49,29 @@
     </div>
   </footer>
 
-  <script src="auth.js"></script>
   <script>
+    const USERS_KEY = 'ministryUsers';
     const LOGIN_HISTORY_KEY = 'ministryLoginHistory';
-    const API_LOGIN = '/api/login';
-    const API_ROSTER = '/api/signup/roster';
+    const CURRENT_USER_KEY = 'ministryCurrentUser';
 
     const form = document.getElementById('login-form');
     const errorMessage = document.getElementById('login-error');
     const loginIdInput = document.getElementById('login-id');
     const loginPasswordInput = document.getElementById('login-password');
-    const submitButton = form.querySelector('button[type="submit"]');
 
     const registeredList = document.getElementById('login-user-list');
     const registeredEmpty = document.getElementById('login-registered-empty');
     const historyList = document.getElementById('login-history-list');
     const historyEmpty = document.getElementById('login-history-empty');
+
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('사용자 데이터를 불러올 수 없습니다.', error);
+        return [];
+      }
+    };
 
     const loadHistory = () => {
       try {
@@ -79,12 +86,8 @@
       localStorage.setItem(LOGIN_HISTORY_KEY, JSON.stringify(history));
     };
 
-    const setSubmitting = isSubmitting => {
-      submitButton.disabled = isSubmitting;
-      submitButton.textContent = isSubmitting ? '확인 중...' : '로그인';
-    };
-
-    const renderRegistered = users => {
+    const renderRegistered = () => {
+      const users = loadUsers();
       registeredList.innerHTML = '';
 
       if (!users.length) {
@@ -118,10 +121,10 @@
 
       historyEmpty.hidden = true;
 
-      history.forEach((entry, index) => {
+      history.forEach((id, index) => {
         const item = document.createElement('li');
         const name = document.createElement('strong');
-        name.textContent = entry;
+        name.textContent = id;
 
         const label = document.createElement('span');
         label.textContent = index === 0 ? '최근 로그인' : `기록 ${index + 1}`;
@@ -131,88 +134,37 @@
       });
     };
 
-    const loadRoster = async () => {
-      try {
-        const response = await fetch(API_ROSTER);
-        if (!response.ok) {
-          throw new Error('등록된 아이디를 불러오지 못했습니다.');
-        }
-        const payload = await response.json();
-        const users = Array.isArray(payload.users) ? payload.users : [];
-        renderRegistered(users);
-      } catch (error) {
-        console.error(error);
-        registeredList.innerHTML = '';
-        registeredEmpty.hidden = false;
-      }
-    };
-
-    const handleError = message => {
-      errorMessage.textContent = message;
-      errorMessage.hidden = false;
-    };
-
-    form.addEventListener('submit', async event => {
+    form.addEventListener('submit', event => {
       event.preventDefault();
 
       const id = loginIdInput.value.trim();
       const password = loginPasswordInput.value.trim();
 
       if (!id || !password) {
-        handleError('아이디와 비밀번호를 모두 입력해주세요.');
         return;
       }
 
-      try {
-        setSubmitting(true);
-        errorMessage.hidden = true;
+      const users = loadUsers();
+      const matchedUser = users.find(user => user.id === id && user.password === password);
 
-        const response = await fetch(API_LOGIN, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, password })
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          const message = payload && payload.error ? payload.error : '로그인 중 오류가 발생했습니다.';
-          handleError(message);
-          return;
-        }
-
-        const { token, user } = payload;
-        if (token) {
-          window.ministryAuth.saveToken(token);
-        }
-        if (user) {
-          window.ministryAuth.saveUser(user);
-        }
-
-        const history = loadHistory();
-        const filteredHistory = history.filter(entry => entry !== id);
-        filteredHistory.unshift(id);
-        saveHistory(filteredHistory);
-
-        renderHistory();
-        window.location.href = 'login-success.html';
-      } catch (error) {
-        console.error('로그인 요청이 실패했습니다.', error);
-        handleError('서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.');
-      } finally {
-        setSubmitting(false);
+      if (!matchedUser) {
+        errorMessage.hidden = false;
+        return;
       }
-    });
 
-    loginIdInput.addEventListener('input', () => {
       errorMessage.hidden = true;
+
+      const history = loadHistory();
+      const filteredHistory = history.filter(entry => entry !== id);
+      filteredHistory.unshift(id);
+      saveHistory(filteredHistory);
+      localStorage.setItem(CURRENT_USER_KEY, id);
+
+      renderHistory();
+      window.location.href = 'login-success.html';
     });
 
-    loginPasswordInput.addEventListener('input', () => {
-      errorMessage.hidden = true;
-    });
-
-    loadRoster();
+    renderRegistered();
     renderHistory();
   </script>
 </body>

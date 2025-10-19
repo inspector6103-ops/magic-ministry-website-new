@@ -25,12 +25,10 @@
         <button type="submit" class="button primary">기밀 열람</button>
         <p class="error-message" id="unlock-error" aria-live="polite" hidden>암구호가 올바르지 않습니다. 다시 시도하세요.</p>
       </form>
-      <p class="error-message" id="admin-auth-error" aria-live="polite" hidden>관리자 계정으로 먼저 로그인해주세요.</p>
       <p class="secret-hint">* 힌트: 포털 개발팀이 즐겨 쓰는 마법 구문을 떠올려 보세요.</p>
     </section>
 
     <div id="admin-content" class="admin-wrapper" hidden>
-      <p class="error-message" id="admin-api-error" aria-live="polite" hidden>데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>
       <section class="list-section admin-panel" aria-live="polite">
         <h2>등록된 마법부 회원</h2>
         <p class="list-help">회원가입을 완료한 아이디와 보안 확인용 비밀번호 목록입니다.</p>
@@ -62,9 +60,10 @@
     </div>
   </footer>
 
-  <script src="auth.js"></script>
   <script>
     const SECRET_PASSPHRASE = 'MischiefManaged!';
+    const USERS_KEY = 'ministryUsers';
+    const PETITIONS_KEY = 'ministryPetitions';
     const ADMIN_SESSION_KEY = 'ministryAdminUnlocked';
 
     const adminLock = document.getElementById('admin-lock');
@@ -72,13 +71,29 @@
     const unlockForm = document.getElementById('unlock-form');
     const passphraseInput = document.getElementById('admin-passphrase');
     const unlockError = document.getElementById('unlock-error');
-    const adminAuthError = document.getElementById('admin-auth-error');
-    const adminApiError = document.getElementById('admin-api-error');
 
     const usersTableBody = document.getElementById('admin-users-body');
     const usersEmptyMessage = document.getElementById('admin-users-empty');
     const petitionsList = document.getElementById('admin-petitions-list');
     const petitionsEmptyMessage = document.getElementById('admin-petitions-empty');
+
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('사용자 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
+
+    const loadPetitions = () => {
+      try {
+        return JSON.parse(localStorage.getItem(PETITIONS_KEY)) || [];
+      } catch (error) {
+        console.error('민원 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
 
     const createMultilineParagraph = text => {
       const paragraph = document.createElement('p');
@@ -95,7 +110,8 @@
       return paragraph;
     };
 
-    const renderUsers = users => {
+    const renderUsers = () => {
+      const users = loadUsers();
       usersTableBody.innerHTML = '';
 
       if (!users.length) {
@@ -105,31 +121,25 @@
 
       usersEmptyMessage.hidden = true;
 
-      users
-        .slice()
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return aTime - bTime;
-        })
-        .forEach((user, index) => {
-          const row = document.createElement('tr');
+      users.forEach((user, index) => {
+        const row = document.createElement('tr');
 
-          const orderCell = document.createElement('td');
-          orderCell.textContent = `#${String(index + 1).padStart(2, '0')}`;
+        const orderCell = document.createElement('td');
+        orderCell.textContent = `#${String(index + 1).padStart(2, '0')}`;
 
-          const idCell = document.createElement('td');
-          idCell.textContent = user.id;
+        const idCell = document.createElement('td');
+        idCell.textContent = user.id;
 
-          const passwordCell = document.createElement('td');
-          passwordCell.textContent = user.password || '—';
+        const passwordCell = document.createElement('td');
+        passwordCell.textContent = user.password;
 
-          row.append(orderCell, idCell, passwordCell);
-          usersTableBody.appendChild(row);
-        });
+        row.append(orderCell, idCell, passwordCell);
+        usersTableBody.appendChild(row);
+      });
     };
 
-    const renderPetitions = petitions => {
+    const renderPetitions = () => {
+      const petitions = loadPetitions();
       petitionsList.innerHTML = '';
 
       if (!petitions.length) {
@@ -140,7 +150,6 @@
       petitionsEmptyMessage.hidden = true;
 
       petitions
-        .slice()
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .forEach(petition => {
           const listItem = document.createElement('li');
@@ -168,82 +177,15 @@
         });
     };
 
-    const fetchAdminData = async () => {
-      try {
-        adminApiError.hidden = true;
-        const response = await window.ministryAuth.authorizedFetch('/api/admin/overview');
-
-        if (response.status === 401) {
-          window.ministryAuth.logout();
-          adminAuthError.hidden = false;
-          adminAuthError.textContent = '세션이 만료되었습니다. 다시 로그인해주세요.';
-          adminLock.hidden = false;
-          adminContent.hidden = true;
-          return;
-        }
-
-        if (response.status === 403) {
-          adminAuthError.hidden = false;
-          adminAuthError.textContent = '관리자 권한이 있는 계정으로 로그인해야 합니다.';
-          adminLock.hidden = false;
-          adminContent.hidden = true;
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('데이터를 불러오지 못했습니다.');
-        }
-
-        const payload = await response.json();
-        const users = Array.isArray(payload.users) ? payload.users : [];
-        const petitions = Array.isArray(payload.petitions) ? payload.petitions : [];
-        renderUsers(users);
-        renderPetitions(petitions);
-      } catch (error) {
-        console.error(error);
-        adminApiError.hidden = false;
-      }
-    };
-
     const unlockAdmin = () => {
       adminLock.hidden = true;
       adminContent.hidden = false;
-      fetchAdminData();
-    };
-
-    let isAdminAuthenticated = false;
-
-    const ensureAdminAuthentication = async () => {
-      try {
-        const response = await window.ministryAuth.authorizedFetch('/api/me');
-        if (!response.ok) {
-          throw new Error('unauthorized');
-        }
-
-        const payload = await response.json();
-        if (!payload || !payload.user || payload.user.role !== 'admin') {
-          throw new Error('forbidden');
-        }
-
-        window.ministryAuth.saveUser(payload.user);
-        isAdminAuthenticated = true;
-        adminAuthError.hidden = true;
-      } catch (error) {
-        isAdminAuthenticated = false;
-        adminAuthError.hidden = false;
-        adminAuthError.textContent = '관리자 계정으로 먼저 로그인해주세요.';
-        adminLock.hidden = false;
-        adminContent.hidden = true;
-      }
+      renderUsers();
+      renderPetitions();
     };
 
     unlockForm.addEventListener('submit', event => {
       event.preventDefault();
-      if (!isAdminAuthenticated) {
-        adminAuthError.hidden = false;
-        adminAuthError.textContent = '관리자 계정으로 먼저 로그인해주세요.';
-        return;
-      }
       const passphrase = passphraseInput.value.trim();
 
       if (passphrase !== SECRET_PASSPHRASE) {
@@ -265,15 +207,13 @@
 
     const hasUnlocked = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 
-    ensureAdminAuthentication().then(() => {
-      if (hasUnlocked && isAdminAuthenticated) {
-        unlockAdmin();
-      } else {
-        adminLock.hidden = false;
-        adminContent.hidden = true;
-        passphraseInput.focus();
-      }
-    });
+    if (hasUnlocked) {
+      unlockAdmin();
+    } else {
+      adminLock.hidden = false;
+      adminContent.hidden = true;
+      passphraseInput.focus();
+    }
   </script>
 </body>
 </html>

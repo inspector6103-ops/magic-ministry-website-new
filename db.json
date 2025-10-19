@@ -1,32 +1,16 @@
 {
   "users": [
-    {
-      "id": "admin",
-      "password": "admin123",
-      "role": "admin",
-      "createdAt": "2024-01-01T00:00:00.000Z"
-    },
-    {
-      "id": "tester",
-      "password": "magic",
-      "role": "user",
-      "createdAt": "2025-10-19T11:22:00.317Z"
-    }
+    { "id": "admin", "password": "admin123" },
+    { "id": "auror1", "password": "protego" }
   ],
   "petitions": [
     {
-      "name": "테스터",
-      "topic": "안전",
-      "content": "테스트 민원",
-      "timestamp": "2025-10-19T11:22:11.578Z",
-      "userId": "tester"
-    }
-  ],
-  "sessions": [
+      "name": "해리", "topic": "민원", "content": "어두운 마법사 단속을 강화해주세요.",
+      "time": "2023-10-01 10:00"
+    },
     {
-      "token": "1d8c97a6-5883-428b-a0b7-e079598dafe8",
-      "userId": "admin",
-      "createdAt": "2025-10-19T11:22:16.052Z"
+      "name": "헤르미온느", "topic": "교육", "content": "머글 보호 교육을 확대해주세요.",
+      "time": "2023-10-02 14:30"
     }
   ]
 }

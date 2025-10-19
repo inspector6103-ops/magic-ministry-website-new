@@ -23,7 +23,6 @@
       <div class="button-row">
         <a class="button primary" href="petition.html">총리에게 바란다 이동</a>
         <a class="button" href="jobs.html">직업 신청하기</a>
-        <button type="button" class="button secondary" id="logout-button">로그아웃</button>
       </div>
     </section>
 
@@ -41,18 +40,29 @@
     </div>
   </footer>
 
-  <script src="auth.js"></script>
   <script>
+    const CURRENT_USER_KEY = 'ministryCurrentUser';
+    const USERS_KEY = 'ministryUsers';
+
     const currentUserLabel = document.getElementById('current-user');
     const registeredList = document.getElementById('success-user-list');
     const emptyMessage = document.getElementById('success-empty');
-    const logoutButton = document.getElementById('logout-button');
 
     const redirectToLogin = () => {
       window.location.href = 'login.html';
     };
 
-    const renderUsers = users => {
+    const loadUsers = () => {
+      try {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      } catch (error) {
+        console.error('등록된 아이디를 불러오지 못했습니다.', error);
+        return [];
+      }
+    };
+
+    const renderUsers = () => {
+      const users = loadUsers();
       registeredList.innerHTML = '';
 
       if (!users.length) {
@@ -75,61 +85,14 @@
       });
     };
 
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await window.ministryAuth.authorizedFetch('/api/me');
-        if (!response.ok) {
-          redirectToLogin();
-          return null;
-        }
+    const currentUser = localStorage.getItem(CURRENT_USER_KEY);
 
-        const payload = await response.json();
-        if (!payload || !payload.user) {
-          redirectToLogin();
-          return null;
-        }
-
-        window.ministryAuth.saveUser(payload.user);
-        currentUserLabel.textContent = payload.user.id;
-        return payload.user;
-      } catch (error) {
-        console.error('사용자 정보를 확인하지 못했습니다.', error);
-        redirectToLogin();
-        return null;
-      }
-    };
-
-    const loadRoster = async () => {
-      try {
-        const response = await fetch('/api/signup/roster');
-        if (!response.ok) {
-          throw new Error('등록된 아이디를 불러오지 못했습니다.');
-        }
-        const payload = await response.json();
-        const users = Array.isArray(payload.users) ? payload.users : [];
-        renderUsers(users);
-      } catch (error) {
-        console.error(error);
-        emptyMessage.hidden = false;
-      }
-    };
-
-    logoutButton.addEventListener('click', async () => {
-      try {
-        await window.ministryAuth.authorizedFetch('/api/logout', { method: 'POST' });
-      } catch (error) {
-        console.error('로그아웃 요청이 실패했습니다.', error);
-      } finally {
-        window.ministryAuth.logout();
-        redirectToLogin();
-      }
-    });
-
-    fetchCurrentUser().then(user => {
-      if (user) {
-        loadRoster();
-      }
-    });
+    if (!currentUser) {
+      redirectToLogin();
+    } else {
+      currentUserLabel.textContent = currentUser;
+      renderUsers();
+    }
   </script>
 </body>
 </html>

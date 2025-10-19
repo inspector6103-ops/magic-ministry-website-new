@@ -34,8 +34,6 @@
         <textarea id="petition-content" name="content" rows="6" placeholder="민원 내용을 자세히 작성해주세요." required></textarea>
 
         <button type="submit" class="button primary">민원 등록</button>
-        <p class="error-message" id="petition-error" aria-live="polite" hidden></p>
-        <p class="success-message" id="petition-success" aria-live="polite" hidden>민원이 접수되었습니다.</p>
       </form>
     </section>
 
@@ -53,18 +51,24 @@
     </div>
   </footer>
 
-  <script src="auth.js"></script>
   <script>
+    const PETITIONS_KEY = 'ministryPetitions';
+
     const petitionForm = document.getElementById('petition-form');
     const petitionList = document.getElementById('petition-list');
     const petitionEmpty = document.getElementById('petition-empty');
-    const petitionError = document.getElementById('petition-error');
-    const petitionSuccess = document.getElementById('petition-success');
-    const submitButton = petitionForm.querySelector('button[type="submit"]');
-    let currentUser = null;
 
-    const redirectToLogin = () => {
-      window.location.href = 'login.html';
+    const loadPetitions = () => {
+      try {
+        return JSON.parse(localStorage.getItem(PETITIONS_KEY)) || [];
+      } catch (error) {
+        console.error('민원 데이터를 불러오는 중 오류가 발생했습니다.', error);
+        return [];
+      }
+    };
+
+    const savePetitions = petitions => {
+      localStorage.setItem(PETITIONS_KEY, JSON.stringify(petitions));
     };
 
     const createMultilineParagraph = text => {
@@ -82,7 +86,8 @@
       return paragraph;
     };
 
-    const renderPetitions = petitions => {
+    const renderPetitions = () => {
+      const petitions = loadPetitions();
       petitionList.innerHTML = '';
 
       if (!petitions.length) {
@@ -92,160 +97,60 @@
 
       petitionEmpty.hidden = true;
 
-      petitions.forEach(petition => {
-        const listItem = document.createElement('li');
-        listItem.className = 'petition-item';
+      petitions
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .forEach(petition => {
+          const listItem = document.createElement('li');
+          listItem.className = 'petition-item';
 
-        const header = document.createElement('div');
-        header.className = 'petition-header';
+          const header = document.createElement('div');
+          header.className = 'petition-header';
 
-        const nameLabel = document.createElement('strong');
-        nameLabel.textContent = petition.name;
+          const nameLabel = document.createElement('strong');
+          nameLabel.textContent = petition.name;
 
-        const topicBadge = document.createElement('span');
-        topicBadge.className = 'badge';
-        topicBadge.textContent = petition.topic;
+          const topicBadge = document.createElement('span');
+          topicBadge.className = 'badge';
+          topicBadge.textContent = petition.topic;
 
-        header.append(nameLabel, topicBadge);
+          header.append(nameLabel, topicBadge);
 
-        const contentParagraph = createMultilineParagraph(petition.content);
+          const contentParagraph = createMultilineParagraph(petition.content);
 
-        const time = document.createElement('time');
-        time.textContent = new Date(petition.timestamp).toLocaleString('ko-KR');
+          const time = document.createElement('time');
+          time.textContent = new Date(petition.timestamp).toLocaleString('ko-KR');
 
-        listItem.append(header, contentParagraph, time);
-        petitionList.appendChild(listItem);
-      });
+          listItem.append(header, contentParagraph, time);
+          petitionList.appendChild(listItem);
+        });
     };
 
-    const setSubmitting = isSubmitting => {
-      submitButton.disabled = isSubmitting;
-      submitButton.textContent = isSubmitting ? '등록 중...' : '민원 등록';
-    };
-
-    const clearMessages = () => {
-      petitionError.hidden = true;
-      petitionError.textContent = '';
-      petitionSuccess.hidden = true;
-    };
-
-    const ensureAuthenticated = async () => {
-      try {
-        const response = await window.ministryAuth.authorizedFetch('/api/me');
-        if (!response.ok) {
-          redirectToLogin();
-          return null;
-        }
-
-        const payload = await response.json();
-        if (!payload || !payload.user) {
-          redirectToLogin();
-          return null;
-        }
-
-        window.ministryAuth.saveUser(payload.user);
-        currentUser = payload.user;
-        return payload.user;
-      } catch (error) {
-        console.error('인증 정보를 확인하지 못했습니다.', error);
-        redirectToLogin();
-        return null;
-      }
-    };
-
-    const loadPetitions = async () => {
-      try {
-        const response = await window.ministryAuth.authorizedFetch('/api/petitions');
-        if (response.status === 401) {
-          redirectToLogin();
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('민원 목록을 불러오지 못했습니다.');
-        }
-
-        const payload = await response.json();
-        const petitions = Array.isArray(payload.petitions) ? payload.petitions : [];
-        petitions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        renderPetitions(petitions);
-      } catch (error) {
-        console.error(error);
-        petitionList.innerHTML = '';
-        petitionEmpty.hidden = false;
-      }
-    };
-
-    petitionForm.addEventListener('submit', async event => {
+    petitionForm.addEventListener('submit', event => {
       event.preventDefault();
-      clearMessages();
 
       const name = petitionForm.name.value.trim();
       const topic = petitionForm.topic.value;
       const content = petitionForm.content.value.trim();
 
-      if (!name) {
-        petitionError.textContent = '이름을 입력해주세요.';
-        petitionError.hidden = false;
+      if (!name || !topic || !content) {
         return;
       }
 
-      if (!topic || !content) {
-        petitionError.textContent = '모든 필드를 올바르게 입력해주세요.';
-        petitionError.hidden = false;
-        return;
-      }
+      const petitions = loadPetitions();
+      petitions.push({
+        name,
+        topic,
+        content,
+        timestamp: new Date().toISOString()
+      });
 
-      try {
-        setSubmitting(true);
-        const response = await window.ministryAuth.authorizedFetch('/api/petition', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, topic, content })
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (response.status === 401) {
-          redirectToLogin();
-          return;
-        }
-
-        if (!response.ok) {
-          const message = payload && payload.error ? payload.error : '민원을 접수하지 못했습니다.';
-          petitionError.textContent = message;
-          petitionError.hidden = false;
-          return;
-        }
-
-        petitionSuccess.hidden = false;
-        petitionForm.reset();
-        if (currentUser) {
-          petitionForm.name.value = currentUser.id;
-        }
-        petitionForm.name.focus();
-        await loadPetitions();
-      } catch (error) {
-        console.error('민원 접수 요청이 실패했습니다.', error);
-        petitionError.textContent = '서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.';
-        petitionError.hidden = false;
-      } finally {
-        setSubmitting(false);
-      }
+      savePetitions(petitions);
+      renderPetitions();
+      petitionForm.reset();
+      petitionForm.name.focus();
     });
 
-    ['name', 'topic', 'content'].forEach(fieldName => {
-      petitionForm[fieldName].addEventListener('input', clearMessages);
-    });
-
-    ensureAuthenticated().then(user => {
-      if (user && !petitionForm.name.value) {
-        petitionForm.name.value = user.id;
-      }
-      if (user) {
-        loadPetitions();
-      }
-    });
+    renderPetitions();
   </script>
 </body>
 </html>

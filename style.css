@@ -162,11 +162,6 @@ a:focus {
   color: #1b2436;
 }
 
-.button.secondary {
-  background: rgba(27, 36, 54, 0.1);
-  color: #1b2436;
-}
-
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -265,12 +260,6 @@ a:focus {
   align-items: center;
 }
 
-.user-entry-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
 .user-list li strong {
   font-size: 1rem;
 }
@@ -278,11 +267,6 @@ a:focus {
 .user-list li span {
   color: var(--muted);
   font-size: 0.9rem;
-}
-
-.user-list li time {
-  color: var(--muted);
-  font-size: 0.85rem;
 }
 
 .list-section {
@@ -439,16 +423,6 @@ a:focus {
   text-align: center;
   color: var(--muted);
   border-top: 1px solid rgba(197, 167, 105, 0.15);
-}
-
-.footer-actions {
-  margin-top: 1.25rem;
-  display: flex;
-  justify-content: center;
-}
-
-.footer-actions .button {
-  align-self: center;
 }
 
 .logo {
