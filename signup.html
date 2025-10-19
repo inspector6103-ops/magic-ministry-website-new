@@ -70,6 +70,12 @@
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
     };
 
+    const hideMessages = () => {
+      errorMessage.hidden = true;
+      errorMessage.textContent = '';
+      successMessage.hidden = true;
+    };
+
     const renderRegistered = () => {
       const users = loadUsers();
       registeredList.innerHTML = '';
@@ -81,26 +87,41 @@
 
       registeredEmpty.hidden = true;
 
-      [...users]
+      users
         .slice()
-        .reverse()
-        .forEach(({ id }, index) => {
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+          return bTime - aTime;
+        })
+        .forEach(({ id, createdAt }, index) => {
           const item = document.createElement('li');
+          const details = document.createElement('div');
+          details.className = 'user-entry-details';
+
           const name = document.createElement('strong');
           name.textContent = id;
+          details.appendChild(name);
+
+          if (createdAt) {
+            const time = document.createElement('time');
+            time.dateTime = createdAt;
+            time.textContent = new Date(createdAt).toLocaleString('ko-KR');
+            details.appendChild(time);
+          }
 
           const order = document.createElement('span');
-          order.textContent = `최근 등록 ${index + 1}`;
+          order.textContent = `#${String(index + 1).padStart(2, '0')}`;
 
-          item.append(name, order);
+          item.append(details, order);
           registeredList.appendChild(item);
         });
     };
 
     form.addEventListener('submit', event => {
       event.preventDefault();
-      errorMessage.hidden = true;
-      successMessage.hidden = true;
+      hideMessages();
 
       const id = idInput.value.trim();
       const password = passwordInput.value.trim();
@@ -132,7 +153,11 @@
         return;
       }
 
-      users.push({ id, password });
+      users.push({
+        id,
+        password,
+        createdAt: new Date().toISOString(),
+      });
       saveUsers(users);
 
       successMessage.hidden = false;
@@ -140,6 +165,9 @@
       renderRegistered();
       idInput.focus();
     });
+
+    idInput.addEventListener('input', hideMessages);
+    passwordInput.addEventListener('input', hideMessages);
 
     renderRegistered();
   </script>

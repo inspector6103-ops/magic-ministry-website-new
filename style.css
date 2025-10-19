@@ -260,6 +260,12 @@ a:focus {
   align-items: center;
 }
 
+.user-entry-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .user-list li strong {
   font-size: 1rem;
 }
@@ -267,6 +273,11 @@ a:focus {
 .user-list li span {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.user-list li time {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .list-section {
