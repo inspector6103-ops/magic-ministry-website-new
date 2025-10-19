@@ -1,16 +1,22 @@
 {
+{
   "users": [
     { "id": "admin", "password": "admin123" },
     { "id": "auror1", "password": "protego" }
   ],
   "petitions": [
     {
-      "name": "해리", "topic": "민원", "content": "어두운 마법사 단속을 강화해주세요.",
+      "name": "해리",
+      "topic": "민원",
+      "content": "어두운 마법사 단속을 강화해주세요.",
       "time": "2023-10-01 10:00"
     },
     {
-      "name": "헤르미온느", "topic": "교육", "content": "머글 보호 교육을 확대해주세요.",
+      "name": "헤르미온느",
+      "topic": "교육",
+      "content": "머글 보호 교육을 확대해주세요.",
       "time": "2023-10-02 14:30"
     }
-  ]
+  ],
+  "sessions": []
 }
