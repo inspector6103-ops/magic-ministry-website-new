@@ -161,21 +161,28 @@
           body: JSON.stringify({ id, password }),
         });
 
+        const payload = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
           if (response.status === 409) {
             errorMessage.textContent = '이미 등록된 아이디입니다.';
+          } else if (payload && payload.error) {
+            errorMessage.textContent = payload.error;
           } else {
-            errorMessage.textContent = payload.error || '회원가입 중 오류가 발생했습니다.';
+            errorMessage.textContent = '회원가입 중 오류가 발생했습니다.';
           }
           errorMessage.hidden = false;
           return;
         }
 
+        const createdAt = payload && payload.user && payload.user.createdAt
+          ? payload.user.createdAt
+          : new Date().toISOString();
+
         users.push({
           id,
           password,
-          createdAt: new Date().toISOString(),
+          createdAt,
         });
         saveUsers(users);
 

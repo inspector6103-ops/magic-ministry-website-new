@@ -60,12 +60,44 @@ app.get('/api/petitions', async (req, res) => {
 
 app.post('/api/signup', async (req, res) => {
   const { id, password } = req.body || {};
-  if (!id || !password) return res.status(400).json({ error: 'id and password required' });
 
-  const db = await readDB();
-  db.users.push({ id, password });
-  await writeDB(db);
-  res.json({ ok: true });
+  if (typeof id !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: '아이디와 비밀번호를 정확히 입력해주세요.' });
+  }
+
+  const trimmedId = id.trim();
+  const trimmedPassword = password.trim();
+
+  if (!trimmedId || !trimmedPassword) {
+    return res.status(400).json({ error: '아이디와 비밀번호를 모두 입력해주세요.' });
+  }
+
+  if (trimmedId.length < 3) {
+    return res.status(400).json({ error: '아이디는 3자 이상 입력해주세요.' });
+  }
+
+  if (trimmedPassword.length < 4) {
+    return res.status(400).json({ error: '비밀번호는 4자 이상 입력해주세요.' });
+  }
+
+  try {
+    const db = await readDB();
+
+    if (db.users.some(user => user.id === trimmedId)) {
+      return res.status(409).json({ error: '이미 등록된 아이디입니다.' });
+    }
+
+    const createdAt = new Date().toISOString();
+    db.users.push({ id: trimmedId, password: trimmedPassword, createdAt });
+    await writeDB(db);
+
+    return res.status(201).json({
+      user: { id: trimmedId, createdAt },
+    });
+  } catch (error) {
+    console.error('회원가입 저장 중 오류가 발생했습니다.', error);
+    return res.status(500).json({ error: '회원가입 정보를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
 });
 
 app.post('/api/petition', async (req, res) => {
